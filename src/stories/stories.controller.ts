@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -17,21 +18,41 @@ export class StoriesController {
   constructor(private stories: StoriesService) {}
 
   @Post()
-  async create(
-    @Body('genre') genre: string,
-    @Body('protagonist') protagonist: string,
-    @Body('matureEnabled') matureEnabled: boolean,
-    @Req() req: Request,
+  createStory(
+    @Req() req,
+    @Body()
+    body: {
+      genre: string;
+      protagonist: string;
+      gender: 'male' | 'female' | 'non-binary';
+      matureEnabled: boolean;
+    },
   ) {
-    const user = (req as any).user;
+    return this.stories.createStory(
+      req.user.id,
+      body.genre,
+      body.protagonist,
+      body.gender,
+      body.matureEnabled,
+    );
+  }
 
-    return this.stories.createStory(user.id, genre, protagonist, matureEnabled);
+  @UseGuards(AuthGuard)
+  @Get('me')
+  getMyStories(@Req() req) {
+    return this.stories.getMyStories(req.user.id);
   }
 
   @Get(':id')
   async getStory(@Param('id') id: string, @Req() req: Request) {
     const user = (req as any).user;
     return this.stories.getStory(id, user.id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete(':id')
+  deleteStory(@Req() req, @Param('id') id: string) {
+    return this.stories.deleteStory(id, req.user.id);
   }
 
   @Post(':id/turn')

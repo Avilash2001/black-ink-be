@@ -22,12 +22,14 @@ export class StoriesService {
     userId: string,
     genre: string,
     protagonist: string,
+    gender: 'male' | 'female' | 'non-binary',
     matureEnabled: boolean,
   ) {
     const story = this.stories.create({
       userId,
       genre,
       protagonist,
+      gender,
       matureEnabled,
     });
 
@@ -48,6 +50,9 @@ export class StoriesService {
       Genre: ${genre}
       Protagonist: ${protagonist}
       Mature content allowed: ${matureEnabled}
+      Gender: ${gender}
+      Refer to the protagonist using appropriate pronouns.
+
 
       Begin the story.
     `.trim();
@@ -87,10 +92,6 @@ export class StoriesService {
       openingParagraphs: paragraphs,
     };
   }
-
-  /* ────────────────────────────────────────────────
-     SUBMIT TURN — UNCHANGED (WORKS WITH SYSTEM NODE)
-     ──────────────────────────────────────────────── */
 
   async submitTurn(
     storyId: string,
@@ -175,5 +176,35 @@ export class StoriesService {
 
   private generateMockTurn(action: string, text: string): string[] {
     return [`You decide to ${text}.`, `The world responds in its own way.`];
+  }
+
+  async getMyStories(userId: string) {
+    console.log({ userId });
+
+    return this.stories.find({
+      where: { userId },
+      order: { updatedAt: 'DESC' },
+      select: {
+        id: true,
+        genre: true,
+        protagonist: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async deleteStory(storyId: string, userId: string) {
+    const story = await this.stories.findOne({
+      where: { id: storyId, userId },
+    });
+
+    if (!story) {
+      throw new Error('Story not found');
+    }
+
+    await this.stories.remove(story);
+
+    return { success: true };
   }
 }

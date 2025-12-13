@@ -22,6 +22,9 @@ export class Story {
   @Column()
   protagonist: string;
 
+  @Column()
+  gender: 'male' | 'female' | 'non-binary';
+
   @Column({ default: false })
   matureEnabled: boolean;
 
