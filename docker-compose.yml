@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: ai_adventure_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: adventure
+      POSTGRES_PASSWORD: adventure
+      POSTGRES_DB: adventure
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
