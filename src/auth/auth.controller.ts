@@ -21,7 +21,7 @@ export class AuthController {
     res.cookie('session', session.id, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: false, // true in prod
+      secure: false,
     });
 
     return {

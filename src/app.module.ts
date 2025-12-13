@@ -14,7 +14,7 @@ import { AiModule } from './ai/ai.module';
       password: 'adventure',
       database: 'adventure',
       autoLoadEntities: true,
-      synchronize: true, // dev only
+      synchronize: true,
     }),
     StoriesModule,
     AuthModule,

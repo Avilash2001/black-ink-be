@@ -35,7 +35,6 @@ export class StoriesService {
 
     await this.stories.save(story);
 
-    // ── AI PROMPT FOR STORY OPENING ─────────────────
     const openingPrompt = `
       You are a story engine.
 
@@ -62,7 +61,6 @@ export class StoriesService {
     try {
       aiText = await this.ai.generate(openingPrompt);
     } catch {
-      // Hard fallback (should almost never happen)
       aiText = `${protagonist} stands at the edge of something unknown.\n\nThe world waits.`;
     }
 
