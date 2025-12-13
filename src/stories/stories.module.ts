@@ -4,9 +4,10 @@ import { Story } from './story.entity';
 import { StoryNode } from './story-node.entity';
 import { StoriesService } from './stories.service';
 import { StoriesController } from './stories.controller';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Story, StoryNode])],
+  imports: [TypeOrmModule.forFeature([Story, StoryNode]), AuthModule],
   providers: [StoriesService],
   controllers: [StoriesController],
 })
