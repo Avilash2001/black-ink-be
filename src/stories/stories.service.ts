@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Story } from './story.entity';
 import { StoryNode } from './story-node.entity';
+import { AiService } from '../ai/ai.service';
+import { buildPrompt } from '../ai/prompt.builder';
 
 @Injectable()
 export class StoriesService {
@@ -12,6 +14,8 @@ export class StoriesService {
 
     @InjectRepository(StoryNode)
     private nodes: Repository<StoryNode>,
+
+    private ai: AiService,
   ) {}
 
   async createStory(
@@ -121,9 +125,21 @@ export class StoriesService {
     const lastNode = validNodes[validNodes.length - 1];
     const tokenStart = rewindToken;
 
-    // 4️⃣ Generate mock response (AI later)
-    const paragraphs = this.generateMockTurn(action, text);
+    const prompt = buildPrompt(story, validNodes, action, text);
 
+    let aiText: string;
+
+    try {
+      aiText = await this.ai.generate(prompt);
+    } catch {
+      // fallback if Ollama fails
+      aiText = this.generateMockTurn(action, text).join('\n\n');
+    }
+
+    const paragraphs = aiText
+      .split('\n')
+      .filter((p) => p.trim().length > 0)
+      .slice(0, 2);
     const generatedText = paragraphs.join(' ');
     const tokenCount = generatedText.split(' ').length;
     const tokenEnd = tokenStart + tokenCount;
