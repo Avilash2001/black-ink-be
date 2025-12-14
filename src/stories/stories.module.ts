@@ -1,15 +1,18 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Story } from './story.entity';
-import { StoryNode } from './story-node.entity';
 import { StoriesService } from './stories.service';
 import { StoriesController } from './stories.controller';
-import { AuthModule } from '../auth/auth.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Story, StorySchema } from './story.schema';
 import { AiModule } from 'src/ai/ai.module';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Story, StoryNode]), AuthModule, AiModule],
-  providers: [StoriesService],
+  imports: [
+    MongooseModule.forFeature([{ name: Story.name, schema: StorySchema }]),
+    AiModule,
+    AuthModule,
+  ],
   controllers: [StoriesController],
+  providers: [StoriesService],
 })
 export class StoriesModule {}

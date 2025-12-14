@@ -1,42 +1,63 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from './user.entity';
-import { Session } from './session.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User, UserDocument } from './user.schema';
+import { Session, SessionDocument } from './session.schema';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private users: Repository<User>,
+    @InjectModel(User.name)
+    private users: Model<UserDocument>,
 
-    @InjectRepository(Session)
-    private sessions: Repository<Session>,
+    @InjectModel(Session.name)
+    private sessions: Model<SessionDocument>,
   ) {}
 
   async login(email: string, userAgent: string, ipAddress: string) {
-    let user = await this.users.findOne({ where: { email } });
+    let user = await this.users.findOne({ email });
 
     if (!user) {
-      user = this.users.create({ email });
-      await this.users.save(user);
+      user = await this.users.create({ email });
     }
 
-    const session = this.sessions.create({
-      user,
+    const session = await this.sessions.create({
+      user: user._id,
       userAgent,
       ipAddress,
     });
 
-    await this.sessions.save(session);
-
-    return session;
+    return {
+      id: session._id.toString(),
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+      },
+    };
   }
 
   async getSession(sessionId: string) {
-    return this.sessions.findOne({
-      where: { id: sessionId },
-      relations: ['user'],
-    });
+    const session = await this.sessions.findById(sessionId).populate('user');
+
+    if (!session) return null;
+
+    if (typeof session.user === 'string' || session.user instanceof Object) {
+      // runtime safety check
+    }
+
+    const user =
+      typeof session.user === 'object' && 'email' in session.user
+        ? session.user
+        : null;
+
+    if (!user) return null;
+
+    return {
+      id: session._id.toString(),
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+      },
+    };
   }
 }

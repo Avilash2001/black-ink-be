@@ -1,20 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Story } from './story.entity';
-import { StoryNode } from './story-node.entity';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Story, StoryDocument } from './story.schema';
 import { AiService } from '../ai/ai.service';
 import { buildPrompt } from '../ai/prompt.builder';
 
 @Injectable()
 export class StoriesService {
   constructor(
-    @InjectRepository(Story)
-    private stories: Repository<Story>,
-
-    @InjectRepository(StoryNode)
-    private nodes: Repository<StoryNode>,
-
+    @InjectModel(Story.name)
+    private storyModel: Model<StoryDocument>,
     private ai: AiService,
   ) {}
 
@@ -25,15 +20,14 @@ export class StoriesService {
     gender: 'male' | 'female' | 'non-binary',
     matureEnabled: boolean,
   ) {
-    const story = this.stories.create({
+    const story = await this.storyModel.create({
       userId,
       genre,
       protagonist,
       gender,
       matureEnabled,
+      nodes: [],
     });
-
-    await this.stories.save(story);
 
     const openingPrompt = `
       You are a story engine.
@@ -45,6 +39,7 @@ export class StoriesService {
       - Do NOT instruct the player
       - Never mention being an AI or a game
       - Begin naturally, in medias res if appropriate
+      - Never break immersion
 
       Genre: ${genre}
       Protagonist: ${protagonist}
@@ -54,7 +49,7 @@ export class StoriesService {
 
 
       Begin the story.
-    `.trim();
+      `.trim();
 
     let aiText: string;
 
@@ -73,9 +68,7 @@ export class StoriesService {
     const generatedText = paragraphs.join(' ');
     const tokenCount = generatedText.split(/\s+/).length;
 
-    const openingNode = this.nodes.create({
-      story,
-      parentNodeId: null,
+    story.nodes.push({
       actionType: 'SYSTEM',
       userInput: '',
       generatedText,
@@ -83,10 +76,10 @@ export class StoriesService {
       tokenEnd: tokenCount,
     });
 
-    await this.nodes.save(openingNode);
+    await story.save();
 
     return {
-      storyId: story.id,
+      storyId: story._id.toString(),
       openingParagraphs: paragraphs,
     };
   }
@@ -98,17 +91,15 @@ export class StoriesService {
     text: string,
     rewindToken: number,
   ) {
-    const story = await this.stories.findOne({
-      where: { id: storyId, userId },
-      relations: ['nodes'],
-      order: { nodes: { createdAt: 'ASC' } },
+    const story = await this.storyModel.findOne({
+      _id: storyId,
+      userId,
     });
 
-    if (!story) {
-      throw new Error('Story not found');
-    }
+    if (!story) throw new NotFoundException();
 
     const nodes = story.nodes;
+
     const rewindIndex = nodes.findIndex(
       (n) => n.tokenStart <= rewindToken && rewindToken <= n.tokenEnd,
     );
@@ -117,22 +108,10 @@ export class StoriesService {
       throw new Error('Invalid rewind token');
     }
 
-    const validNodes = nodes.slice(0, rewindIndex + 1);
+    story.nodes = nodes.slice(0, rewindIndex + 1);
 
-    const nodesToDelete = nodes.slice(rewindIndex + 1);
-    if (nodesToDelete.length > 0) {
-      await this.nodes.remove(nodesToDelete);
-    }
-
-    const prompt = buildPrompt(story, validNodes, action, text);
-
-    let aiText: string;
-
-    try {
-      aiText = await this.ai.generate(prompt);
-    } catch {
-      aiText = this.generateMockTurn(action, text).join('\n\n');
-    }
+    const prompt = buildPrompt(story, story.nodes, action, text);
+    const aiText = await this.ai.generate(prompt);
 
     const paragraphs = aiText
       .split('\n')
@@ -141,13 +120,11 @@ export class StoriesService {
       .slice(0, 2);
 
     const generatedText = paragraphs.join(' ');
-    const tokenStart = rewindToken;
     const tokenCount = generatedText.split(/\s+/).length;
+    const tokenStart = rewindToken;
     const tokenEnd = tokenStart + tokenCount;
 
-    const newNode = this.nodes.create({
-      story,
-      parentNodeId: validNodes[validNodes.length - 1].id,
+    story.nodes.push({
       actionType: action,
       userInput: text,
       generatedText,
@@ -155,7 +132,7 @@ export class StoriesService {
       tokenEnd,
     });
 
-    await this.nodes.save(newNode);
+    await story.save();
 
     return {
       paragraphs,
@@ -165,43 +142,28 @@ export class StoriesService {
   }
 
   async getStory(storyId: string, userId: string) {
-    return this.stories.findOne({
-      where: { id: storyId, userId },
-      relations: ['nodes'],
-      order: { nodes: { createdAt: 'ASC' } },
+    return this.storyModel.findOne({
+      _id: storyId,
+      userId,
     });
-  }
-
-  private generateMockTurn(action: string, text: string): string[] {
-    return [`You decide to ${text}.`, `The world responds in its own way.`];
   }
 
   async getMyStories(userId: string) {
-    console.log({ userId });
-
-    return this.stories.find({
-      where: { userId },
-      order: { updatedAt: 'DESC' },
-      select: {
-        id: true,
-        genre: true,
-        protagonist: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    return this.storyModel
+      .find({ userId })
+      .sort({ updatedAt: -1 })
+      .select('_id genre protagonist createdAt updatedAt');
   }
 
   async deleteStory(storyId: string, userId: string) {
-    const story = await this.stories.findOne({
-      where: { id: storyId, userId },
+    const res = await this.storyModel.deleteOne({
+      _id: storyId,
+      userId,
     });
 
-    if (!story) {
-      throw new Error('Story not found');
+    if (res.deletedCount === 0) {
+      throw new NotFoundException();
     }
-
-    await this.stories.remove(story);
 
     return { success: true };
   }

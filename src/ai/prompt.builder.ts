@@ -1,5 +1,4 @@
-import { Story } from '../stories/story.entity';
-import { StoryNode } from '../stories/story-node.entity';
+import { Story, StoryNode } from 'src/stories/story.schema';
 
 export function buildPrompt(
   story: Story,
