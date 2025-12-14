@@ -8,7 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
   app.enableCors({
-    origin: ['https://black-inkk.vercel.app/'],
+    origin: ['https://black-inkk.vercel.app'],
     credentials: true,
   });
   await app.listen(3000);
