@@ -20,10 +20,9 @@ export class AuthController {
 
     res.cookie('session', session.id, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
+      sameSite: 'none',
+      secure: true,
     });
-
     return {
       userId: session.user.id,
       email: session.user.email,
