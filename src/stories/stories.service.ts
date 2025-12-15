@@ -38,8 +38,6 @@ export class StoriesService {
       aiText = `${protagonist} stands at the edge of something unknown.\n\nThe world waits.`;
     }
 
-    console.log({ aiText });
-
     const paragraphs = aiText
       .split('\n')
       .map((p) => p.trim())
