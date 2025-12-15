@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './user.schema';
 import { Session, SessionDocument } from './session.schema';
 
@@ -14,11 +19,47 @@ export class AuthService {
     private sessions: Model<SessionDocument>,
   ) {}
 
-  async login(email: string, userAgent: string, ipAddress: string) {
-    let user = await this.users.findOne({ email });
+  // ─────────────────────────────────────
+  // REGISTER
+  // ─────────────────────────────────────
+  async register(name: string, email: string, password: string) {
+    const existing = await this.users.findOne({ email });
+    if (existing) {
+      throw new BadRequestException('Email already registered');
+    }
 
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = await this.users.create({
+      name,
+      email,
+      passwordHash,
+    });
+
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+    };
+  }
+
+  // ─────────────────────────────────────
+  // LOGIN
+  // ─────────────────────────────────────
+  async login(
+    email: string,
+    password: string,
+    userAgent: string,
+    ipAddress: string,
+  ) {
+    const user = await this.users.findOne({ email });
     if (!user) {
-      user = await this.users.create({ email });
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const session = await this.sessions.create({
@@ -31,33 +72,38 @@ export class AuthService {
       id: session._id.toString(),
       user: {
         id: user._id.toString(),
+        name: user.name,
         email: user.email,
       },
     };
   }
 
+  // ─────────────────────────────────────
+  // SESSION LOOKUP (USED BY GUARD)
+  // ─────────────────────────────────────
   async getSession(sessionId: string) {
     const session = await this.sessions.findById(sessionId).populate('user');
 
-    if (!session) return null;
-
-    if (typeof session.user === 'string' || session.user instanceof Object) {
-      // runtime safety check
+    if (!session || typeof session.user !== 'object') {
+      return null;
     }
 
-    const user =
-      typeof session.user === 'object' && 'email' in session.user
-        ? session.user
-        : null;
-
-    if (!user) return null;
+    const user = session.user as UserDocument;
 
     return {
       id: session._id.toString(),
       user: {
         id: user._id.toString(),
+        name: user.name,
         email: user.email,
       },
     };
+  }
+
+  // ─────────────────────────────────────
+  // LOGOUT
+  // ─────────────────────────────────────
+  async logout(sessionId: string) {
+    await this.sessions.findByIdAndDelete(sessionId);
   }
 }

@@ -3,11 +3,13 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class AiService {
   private readonly ollamaUrl = process.env.OLLAMA_URL!;
-  private readonly ollamaModel = process.env.OLLAMA_Model!;
+  private readonly ollamaModel = process.env.OLLAMA_MODEL!;
+
   private readonly apiKey = process.env.OPENROUTER_API_KEY!;
   private readonly model = process.env.OPENROUTER_MODEL!;
   private readonly baseUrl =
     process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1';
+
   private readonly useLocalModel =
     process.env.USE_LOCAL_MODEL! === 'true' ? true : false;
 
@@ -19,22 +21,26 @@ export class AiService {
   }
 
   async generateLocal(prompt: string): Promise<string> {
-    const res = await fetch(this.ollamaUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: this.ollamaModel,
-        prompt,
-        stream: false,
-      }),
-    });
+    try {
+      const res = await fetch(this.ollamaUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: this.ollamaModel,
+          prompt,
+          stream: false,
+        }),
+      });
 
-    if (!res.ok) {
-      throw new Error('Ollama request failed');
+      if (!res.ok) {
+        throw new Error('Ollama request failed');
+      }
+
+      const data = await res.json();
+      return data.response as string;
+    } catch (error) {
+      console.log(error);
     }
-
-    const data = await res.json();
-    return data.response as string;
   }
 
   async generateCloud(prompt: string): Promise<string> {
