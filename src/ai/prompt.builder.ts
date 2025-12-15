@@ -5,34 +5,110 @@ export function buildPrompt(
   nodes: StoryNode[],
   action: string,
   text: string,
-) {
-  const history = nodes.map((n) => n.generatedText).join('\n\n');
+): string {
+  const storySoFar = nodes.map((n) => n.generatedText).join('\n\n');
+
+  const baseRules = `
+    You are a narrative engine for interactive fiction.
+
+    GLOBAL RULES (DO NOT BREAK THESE):
+    - Write strictly in second person ("you")
+    - Never mention that you are an AI
+    - Never describe choices, options, or commands
+    - Never ask the reader what to do next
+    - Do not break immersion
+    - Do not summarize or recap
+    - Generate exactly TWO paragraphs
+    - Maintain tone, genre, and consequences
+    - Stay consistent with prior events
+    - Never break immersion
+    ${story.matureEnabled ? '- Mature and explicit content is allowed' : '- Avoid explicit sexual content'}
+  `.trim();
+
+  if (action === 'SYSTEM') {
+    return `
+      ${baseRules}
+
+      STORY SETUP:
+      Genre: ${story.genre}
+      Protagonist: ${story.protagonist}
+      Gender: ${story.gender}
+
+      Begin the story naturally. Do not rush. Establish atmosphere and tension.
+
+      Start now.
+    `.trim();
+  }
+
+  if (action === 'CONTINUE') {
+    return `
+      ${baseRules}
+
+      STORY SO FAR:
+      ${storySoFar}
+
+      INSTRUCTION:
+      Continue the story naturally.
+      Let events unfold without user intervention.
+      Advance the plot or deepen the current moment.
+      Do not introduce new characters abruptly unless it makes sense.
+      Do not resolve major arcs too quickly.
+
+      Continue now.
+    `.trim();
+  }
+
+  let actionInstruction = '';
+
+  switch (action) {
+    case 'DO':
+      actionInstruction = `
+        The protagonist attempts the following action:
+        "${text}"
+
+        Describe what happens as a result of this action.
+        Include consequences, resistance, or unexpected outcomes if appropriate.
+      `;
+      break;
+
+    case 'SAY':
+      actionInstruction = `
+        The protagonist says:
+        "${text}"
+
+        Describe how the world or other characters respond.
+        Dialogue may be included, but do not overuse it.
+      `;
+      break;
+
+    case 'SEE':
+      actionInstruction = `
+        The protagonist focuses their attention on:
+        "${text}"
+
+        Describe sensory details, atmosphere, or subtle changes.
+      `;
+      break;
+
+    case 'STORY':
+      actionInstruction = `
+        The protagonist attempts to influence the direction of the story in this way:
+        "${text}"
+
+        Interpret this as intent, not narration control.
+        Integrate it naturally into the world.
+      `;
+      break;
+  }
 
   return `
-You are a text-based interactive fiction engine.
+    ${baseRules}
 
-Rules:
-- Write in second person
-- Generate exactly TWO paragraphs
-- Describe consequences only
-- Never decide or suggest player actions
-- Never include commands or instructions
-- Never say "Type", "Enter", "Try", or similar
-- Never break immersion
-- Never mention being a game or an AI
-- Stay consistent with prior events
+    STORY SO FAR:
+    ${storySoFar}
 
-- Genre: ${story.genre}
-- Protagonist: ${story.protagonist}
-- Mature content allowed: ${story.matureEnabled}
+    ${actionInstruction}
 
-Story so far:
-${history}
-
-Player action:
-Type: ${action}
-Intent: "${text}"
-
-Continue the story.
-`.trim();
+    Continue the story from this point.
+  `.trim();
 }

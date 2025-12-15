@@ -29,32 +29,11 @@ export class StoriesService {
       nodes: [],
     });
 
-    const openingPrompt = `
-      You are a story engine.
-
-      Rules:
-      - Write in second person
-      - Generate exactly TWO paragraphs
-      - Do NOT suggest actions or commands
-      - Do NOT instruct the player
-      - Never mention being an AI or a game
-      - Begin naturally, in medias res if appropriate
-      - Never break immersion
-
-      Genre: ${genre}
-      Protagonist: ${protagonist}
-      Mature content allowed: ${matureEnabled}
-      Gender: ${gender}
-      Refer to the protagonist using appropriate pronouns.
-
-
-      Begin the story.
-      `.trim();
-
     let aiText: string;
+    const prompt = buildPrompt(story, story.nodes, 'SYSTEM', '');
 
     try {
-      aiText = await this.ai.generate(openingPrompt);
+      aiText = await this.ai.generate(prompt);
     } catch {
       aiText = `${protagonist} stands at the edge of something unknown.\n\nThe world waits.`;
     }
