@@ -63,7 +63,12 @@ src/
 - **Story Nodes**: Individual "pages" or "turns" of the story. Linked together to form the narrative chain.
 - **Users**: The players embarking on these adventures.
 
-## 🛠️ Installation & Setup
+## � Frontend
+
+Looking for the frontend? Check out the NextJS-based client here:
+[**Black Ink Frontend Repository**](https://github.com/Avilash2001/black-ink-fe)
+
+## �🛠️ Installation & Setup
 
 Ready to run your own world engine? Follow these steps:
 
@@ -94,6 +99,7 @@ Create a `.env` file in the root directory (copy `.env.example` if it exists) an
 MONGO_URI=mongodb://localhost:27017/ai-adventure
 AI_API_KEY=your_ai_api_key_here
 JWT_SECRET=super_secret_key
+PORT=3000
 ```
 
 ### Step 4: Run the App
