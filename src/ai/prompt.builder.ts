@@ -38,6 +38,8 @@ export function buildPrompt(
     - Maintain tone, genre, and consequences
     - Stay consistent with prior events
     - Never break immersion
+    - Never finish a sentence incompletely or leave it hanging
+    - Never use ellipsis (...)
     ${story.matureEnabled ? '- Mature and explicit content is allowed' : '- Avoid explicit sexual content'}
   `.trim();
 
