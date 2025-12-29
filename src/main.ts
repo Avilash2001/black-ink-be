@@ -10,7 +10,11 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   app.use(cookieParser());
   app.enableCors({
-    origin: ['https://black-inkk.vercel.app', 'http://localhost:3001'],
+    origin: [
+      'https://black-inkk.vercel.app',
+      'http://localhost:3001',
+      'http://localhost:3000',
+    ],
     credentials: true,
   });
   await app.listen(port);

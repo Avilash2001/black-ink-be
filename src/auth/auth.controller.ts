@@ -1,6 +1,15 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { AuthGuard } from './auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -29,13 +38,23 @@ export class AuthController {
       req.ip,
     );
 
+    // Environment check for cookie settings
+    const isProd = process.env.NODE_ENV === 'production';
+
     res.cookie('session', session.id, {
       httpOnly: true,
-      sameSite: 'none',
-      secure: true,
+      sameSite: isProd ? 'none' : 'lax', // Lax for local dev
+      secure: isProd, // Secure true only in prod
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
     return session.user;
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('me')
+  async me(@Req() req: any) {
+    return req.user;
   }
 
   @Post('logout')
