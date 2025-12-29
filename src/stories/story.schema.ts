@@ -1,10 +1,19 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
 export type StoryDocument = HydratedDocument<Story>;
+export type StoryNodeDocument = HydratedDocument<StoryNode>;
 
 @Schema({ timestamps: true })
 export class StoryNode {
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: 'Story',
+    required: true,
+    index: true,
+  })
+  storyId: Types.ObjectId;
+
   @Prop({ required: true })
   actionType: string;
 
@@ -20,6 +29,8 @@ export class StoryNode {
   @Prop({ required: true })
   tokenEnd: number;
 }
+
+export const StoryNodeSchema = SchemaFactory.createForClass(StoryNode);
 
 @Schema({ timestamps: true })
 export class Story {
@@ -37,9 +48,6 @@ export class Story {
 
   @Prop({ default: false })
   matureEnabled: boolean;
-
-  @Prop({ type: [StoryNode], default: [] })
-  nodes: StoryNode[];
 }
 
 export const StorySchema = SchemaFactory.createForClass(Story);

@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Story, StoryDocument } from './story.schema';
+import {
+  Story,
+  StoryDocument,
+  StoryNode,
+  StoryNodeDocument,
+} from './story.schema';
 import { AiService } from '../ai/ai.service';
 import { buildPrompt } from '../ai/prompt.builder';
 
@@ -10,6 +15,8 @@ export class StoriesService {
   constructor(
     @InjectModel(Story.name)
     private storyModel: Model<StoryDocument>,
+    @InjectModel(StoryNode.name)
+    private storyNodeModel: Model<StoryNodeDocument>,
     private ai: AiService,
   ) {}
 
@@ -26,11 +33,11 @@ export class StoriesService {
       protagonist,
       gender,
       matureEnabled,
-      nodes: [],
     });
 
     let aiText: string;
-    const prompt = buildPrompt(story, story.nodes, 'SYSTEM', '');
+    // For initial prompt, we have no nodes yet
+    const prompt = buildPrompt(story, [], 'SYSTEM', '');
 
     try {
       aiText = await this.ai.generate(prompt);
@@ -47,15 +54,14 @@ export class StoriesService {
     const generatedText = paragraphs.join(' ');
     const tokenCount = generatedText.split(/\s+/).length;
 
-    story.nodes.push({
+    await this.storyNodeModel.create({
+      storyId: story._id,
       actionType: 'SYSTEM',
       userInput: '',
       generatedText,
       tokenStart: 0,
       tokenEnd: tokenCount,
     });
-
-    await story.save();
 
     return {
       storyId: story._id.toString(),
@@ -77,9 +83,12 @@ export class StoriesService {
 
     if (!story) throw new NotFoundException();
 
-    const nodes = story.nodes;
+    // Fetch existing nodes sorted by order creation
+    const existingNodes = await this.storyNodeModel
+      .find({ storyId: story._id })
+      .sort({ createdAt: 1 });
 
-    const rewindIndex = nodes.findIndex(
+    const rewindIndex = existingNodes.findIndex(
       (n) => n.tokenStart <= rewindToken && rewindToken <= n.tokenEnd,
     );
 
@@ -87,9 +96,18 @@ export class StoriesService {
       throw new Error('Invalid rewind token');
     }
 
-    story.nodes = nodes.slice(0, rewindIndex + 1);
+    // Keep nodes up to the rewind point
+    const keptNodes = existingNodes.slice(0, rewindIndex + 1);
 
-    const prompt = buildPrompt(story, story.nodes, action, text);
+    // Delete nodes that are being rewound over (if any)
+    const nodesToDelete = existingNodes.slice(rewindIndex + 1);
+    if (nodesToDelete.length > 0) {
+      await this.storyNodeModel.deleteMany({
+        _id: { $in: nodesToDelete.map((n) => n._id) },
+      });
+    }
+
+    const prompt = buildPrompt(story, keptNodes, action, text);
     const aiText = await this.ai.generate(prompt);
 
     const paragraphs = aiText
@@ -103,15 +121,14 @@ export class StoriesService {
     const tokenStart = rewindToken;
     const tokenEnd = tokenStart + tokenCount;
 
-    story.nodes.push({
+    await this.storyNodeModel.create({
+      storyId: story._id,
       actionType: action,
       userInput: text,
       generatedText,
       tokenStart,
       tokenEnd,
     });
-
-    await story.save();
 
     return {
       paragraphs,
@@ -121,10 +138,24 @@ export class StoriesService {
   }
 
   async getStory(storyId: string, userId: string) {
-    return this.storyModel.findOne({
-      _id: storyId,
-      userId,
-    });
+    const story = await this.storyModel
+      .findOne({
+        _id: storyId,
+        userId,
+      })
+      .lean();
+
+    if (!story) return null;
+
+    const nodes = await this.storyNodeModel
+      .find({ storyId: story._id })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return {
+      ...story,
+      nodes,
+    };
   }
 
   async getMyStories(userId: string) {
@@ -143,6 +174,9 @@ export class StoriesService {
     if (res.deletedCount === 0) {
       throw new NotFoundException();
     }
+
+    // cleanup nodes
+    await this.storyNodeModel.deleteMany({ storyId });
 
     return { success: true };
   }
