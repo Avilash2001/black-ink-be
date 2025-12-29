@@ -63,12 +63,6 @@ export class StoriesController {
   ) {
     const user = (req as any).user;
 
-    return this.stories.submitTurn(
-      id,
-      user.id,
-      body.action,
-      body.text,
-      body.rewindToken,
-    );
+    return this.stories.submitTurn(id, user.id, body.action, body.text);
   }
 }

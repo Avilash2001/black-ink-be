@@ -74,7 +74,6 @@ export class StoriesService {
     userId: string,
     action: string,
     text: string,
-    rewindToken: number,
   ) {
     const story = await this.storyModel.findOne({
       _id: storyId,
@@ -88,26 +87,7 @@ export class StoriesService {
       .find({ storyId: story._id })
       .sort({ createdAt: 1 });
 
-    const rewindIndex = existingNodes.findIndex(
-      (n) => n.tokenStart <= rewindToken && rewindToken <= n.tokenEnd,
-    );
-
-    if (rewindIndex === -1) {
-      throw new Error('Invalid rewind token');
-    }
-
-    // Keep nodes up to the rewind point
-    const keptNodes = existingNodes.slice(0, rewindIndex + 1);
-
-    // Delete nodes that are being rewound over (if any)
-    const nodesToDelete = existingNodes.slice(rewindIndex + 1);
-    if (nodesToDelete.length > 0) {
-      await this.storyNodeModel.deleteMany({
-        _id: { $in: nodesToDelete.map((n) => n._id) },
-      });
-    }
-
-    const prompt = buildPrompt(story, keptNodes, action, text);
+    const prompt = buildPrompt(story, existingNodes, action, text);
     const aiText = await this.ai.generate(prompt);
 
     const paragraphs = aiText
@@ -118,7 +98,10 @@ export class StoriesService {
 
     const generatedText = paragraphs.join(' ');
     const tokenCount = generatedText.split(/\s+/).length;
-    const tokenStart = rewindToken;
+
+    // Calculate tokenStart based on the last node, or 0 if none
+    const lastNode = existingNodes[existingNodes.length - 1];
+    const tokenStart = lastNode ? lastNode.tokenEnd : 0;
     const tokenEnd = tokenStart + tokenCount;
 
     await this.storyNodeModel.create({
