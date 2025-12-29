@@ -83,7 +83,14 @@ export class AiService {
         throw new Error('Empty AI response');
       }
 
-      return content.trim();
+      // Cleanup artifacts like <s> [OUT]
+      let cleanContent = content
+        .replace(/<s>/g, '')
+        .replace(/<\/s>/g, '')
+        .replace(/\[OUT\]/g, '')
+        .replace(/\[IN\]/g, '');
+
+      return cleanContent.trim();
     } catch (error) {
       console.log({ error });
     }
