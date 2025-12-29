@@ -137,7 +137,7 @@ export class StoriesService {
     const tokenStart = lastNode ? lastNode.tokenEnd : 0;
     const tokenEnd = tokenStart + tokenCount;
 
-    await this.storyNodeModel.create({
+    const node = await this.storyNodeModel.create({
       storyId: story._id,
       actionType: action,
       userInput: text,
@@ -147,7 +147,7 @@ export class StoriesService {
     });
 
     return {
-      paragraphs,
+      node,
       tokenStart,
       tokenEnd,
     };

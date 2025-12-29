@@ -43,6 +43,10 @@ export class AiService {
     }
   }
 
+  removeBracketedText(input: string): string {
+    return input.replace(/<[^>]*>|\{[^}]*\}|\[[^\]]*\]|\([^)]*\)/g, '').trim();
+  }
+
   async generateCloud(prompt: string): Promise<string> {
     try {
       const res = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -84,11 +88,7 @@ export class AiService {
       }
 
       // Cleanup artifacts like <s> [OUT]
-      let cleanContent = content
-        .replace(/<s>/g, '')
-        .replace(/<\/s>/g, '')
-        .replace(/\[OUT\]/g, '')
-        .replace(/\[IN\]/g, '');
+      let cleanContent = this.removeBracketedText(content);
 
       return cleanContent.trim();
     } catch (error) {
