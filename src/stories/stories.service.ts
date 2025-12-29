@@ -83,11 +83,41 @@ export class StoriesService {
     if (!story) throw new NotFoundException();
 
     // Fetch existing nodes sorted by order creation
-    const existingNodes = await this.storyNodeModel
-      .find({ storyId: story._id })
-      .sort({ createdAt: 1 });
+    // Check if we need to summarize (every 5 turns)
+    const totalNodes = await this.storyNodeModel.countDocuments({
+      storyId: story._id,
+    });
 
-    const prompt = buildPrompt(story, existingNodes, action, text);
+    if (totalNodes > 0 && totalNodes % 5 === 0) {
+      const distinctNodes = await this.storyNodeModel
+        .find({ storyId: story._id })
+        .sort({ createdAt: -1 })
+        .limit(5);
+
+      // Restore chronological order for summary
+      const nodesToSummarize = distinctNodes.reverse();
+      const textToSummarize = nodesToSummarize
+        .map((n) => n.generatedText)
+        .join('\n');
+
+      const newSummary = await this.ai.summarize(
+        story.summary,
+        textToSummarize,
+      );
+
+      story.summary = newSummary;
+      await story.save();
+    }
+
+    // Fetch only recent nodes for context (sliding window)
+    const recentNodesDesc = await this.storyNodeModel
+      .find({ storyId: story._id })
+      .sort({ createdAt: -1 })
+      .limit(10); // Keep last 10 for immediate context
+
+    const recentNodes = recentNodesDesc.reverse();
+
+    const prompt = buildPrompt(story, recentNodes, action, text);
     const aiText = await this.ai.generate(prompt);
 
     const paragraphs = aiText
@@ -100,7 +130,10 @@ export class StoriesService {
     const tokenCount = generatedText.split(/\s+/).length;
 
     // Calculate tokenStart based on the last node, or 0 if none
-    const lastNode = existingNodes[existingNodes.length - 1];
+    // If recentNodes is not empty, the last one is the absolute last node of the story
+    const lastNode = recentNodes[recentNodes.length - 1];
+
+    // Fallback if no nodes found (shouldn't happen in submitTurn usually)
     const tokenStart = lastNode ? lastNode.tokenEnd : 0;
     const tokenEnd = tokenStart + tokenCount;
 

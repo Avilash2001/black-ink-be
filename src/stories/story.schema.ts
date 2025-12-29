@@ -48,6 +48,9 @@ export class Story {
 
   @Prop({ default: false })
   matureEnabled: boolean;
+
+  @Prop({ required: false })
+  summary: string;
 }
 
 export const StorySchema = SchemaFactory.createForClass(Story);

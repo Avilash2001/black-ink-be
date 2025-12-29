@@ -6,7 +6,23 @@ export function buildPrompt(
   action: string,
   text: string,
 ): string {
-  const storySoFar = nodes.map((n) => n.generatedText).join('\n\n');
+  const recentText = nodes.map((n) => n.generatedText).join('\n\n');
+
+  let storyContext = '';
+  if (story.summary) {
+    storyContext = `
+      PREVIOUS STORY SUMMARY:
+      ${story.summary}
+
+      RECENT EVENTS:
+      ${recentText}
+    `;
+  } else {
+    storyContext = `
+      STORY SO FAR:
+      ${recentText}
+    `;
+  }
 
   const baseRules = `
     You are a narrative engine for interactive fiction.
@@ -44,8 +60,7 @@ export function buildPrompt(
     return `
       ${baseRules}
 
-      STORY SO FAR:
-      ${storySoFar}
+      ${storyContext}
 
       INSTRUCTION:
       Continue the story naturally.
@@ -104,8 +119,7 @@ export function buildPrompt(
   return `
     ${baseRules}
 
-    STORY SO FAR:
-    ${storySoFar}
+    ${storyContext}
 
     ${actionInstruction}
 

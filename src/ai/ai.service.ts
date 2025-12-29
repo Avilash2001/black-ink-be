@@ -88,4 +88,68 @@ export class AiService {
       console.log({ error });
     }
   }
+
+  async summarize(currentSummary: string, newContent: string): Promise<string> {
+    const prompt = `
+      You are a specialized summarizer for interactive fiction.
+      
+      CURRENT SUMMARY:
+      ${currentSummary || 'None'}
+
+      NEW RECENT EVENTS:
+      ${newContent}
+
+      INSTRUCTION:
+      Update the summary to include the new events.
+      - Keep it concise (max 300 words).
+      - Retain key plot points, character names, and current state.
+      - Discard minor dialogue or transient details.
+      - Write in present tense.
+    `;
+
+    // specific params for summarization to be faster/cheaper if needed,
+    // but for now reusing generateCloud logic or similar
+    try {
+      // Reusing generateCloud structure but we might want a different system prompt or params
+      // explicit call here to allow differentiation later
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://blackink.app',
+          'X-Title': 'Black Ink',
+        },
+        body: JSON.stringify({
+          model: this.model, // or a cheaper model like 4o-mini
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a narrative summarizer.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.5, // Lower temp for factual summary
+          max_tokens: 500,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`OpenRouter error (${res.status}): ${text}`);
+      }
+
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+
+      if (!content) throw new Error('Empty Summary response');
+      return content.trim();
+    } catch (error) {
+      console.log('Summarization failed', error);
+      return currentSummary + '\n' + newContent; // Fallback: just append if fail
+    }
+  }
 }
