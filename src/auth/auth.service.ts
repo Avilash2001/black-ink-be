@@ -74,6 +74,7 @@ export class AuthService {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
+        matureEnabled: user.matureEnabled ?? false,
       },
     };
   }
@@ -96,7 +97,30 @@ export class AuthService {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
+        matureEnabled: user.matureEnabled ?? false,
       },
+    };
+  }
+
+  // ─────────────────────────────────────
+  // UPDATE USER SETTINGS
+  // ─────────────────────────────────────
+  async updateUser(userId: string, patch: { matureEnabled?: boolean }) {
+    const user = await this.users.findByIdAndUpdate(
+      userId,
+      { $set: patch },
+      { new: true },
+    );
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      matureEnabled: user.matureEnabled ?? false,
     };
   }
 

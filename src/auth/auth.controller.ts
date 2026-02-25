@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Req,
   Res,
@@ -55,6 +56,15 @@ export class AuthController {
   @Get('me')
   async me(@Req() req: any) {
     return req.user;
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('me')
+  async updateMe(
+    @Req() req: any,
+    @Body() body: { matureEnabled?: boolean },
+  ) {
+    return this.auth.updateUser(req.user.id, body);
   }
 
   @Post('logout')
