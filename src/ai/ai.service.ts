@@ -88,7 +88,7 @@ export class AiService {
       }
 
       // Cleanup artifacts like <s> [OUT]
-      let cleanContent = this.removeBracketedText(content);
+      const cleanContent = this.removeBracketedText(content);
 
       return cleanContent.trim();
     } catch (error) {
