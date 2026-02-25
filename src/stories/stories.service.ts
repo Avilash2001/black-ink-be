@@ -118,7 +118,14 @@ export class StoriesService {
     const recentNodes = recentNodesDesc.reverse();
 
     const prompt = buildPrompt(story, recentNodes, action, text);
-    const aiText = await this.ai.generate(prompt);
+
+    let aiText: string;
+    try {
+      aiText = await this.ai.generate(prompt);
+      if (!aiText) throw new Error('Empty response');
+    } catch {
+      aiText = `The story continues, though the path ahead is uncertain.`;
+    }
 
     const paragraphs = aiText
       .split('\n')
