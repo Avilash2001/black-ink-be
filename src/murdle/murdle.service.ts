@@ -50,6 +50,7 @@ CLUE RULES — this is mandatory and must be followed exactly:
     "The one driven by jealousy carried the candlestick." — (motive + weapon)
     "The solicitor was not present at the chapel." — (suspect + location)
     "Whoever used the poison vial acted out of greed." — (weapon + motive)
+- Clues can be both positive ("The person in the greenhouse used the rope") or negative ("The person in the greenhouse did not use the rope"), but must be definitive and not ambiguous
 - Do NOT write clues like "The jealous solicitor used the rope in the library." — that references 4 categories
 - Do NOT write clues like "Someone was in the library." — that references only 1 category
 - Together the clues must uniquely identify the full solution`;
