@@ -96,6 +96,39 @@ export class AiService {
     }
   }
 
+  async generateJson(prompt: string): Promise<string> {
+    const claudeKey = process.env.CLAUDE_KEY!;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': claudeKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        system:
+          'You are a JSON-generating puzzle designer. Output only valid JSON, no markdown, no explanation.',
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Claude API error (${res.status}): ${text}`);
+    }
+
+    const data = await res.json();
+    const content = data.content?.[0]?.text;
+
+    if (!content) {
+      throw new Error(`Empty Claude response: ${JSON.stringify(data)}`);
+    }
+
+    return content.trim();
+  }
+
   async summarize(currentSummary: string, newContent: string): Promise<string> {
     const prompt = `
       You are a specialized summarizer for interactive fiction.

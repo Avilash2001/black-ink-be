@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { StoriesModule } from './stories/stories.module';
 import { AuthModule } from './auth/auth.module';
 import { AiModule } from './ai/ai.module';
+import { MurdleModule } from './murdle/murdle.module';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import * as dotenv from 'dotenv';
@@ -13,6 +14,7 @@ dotenv.config();
     StoriesModule,
     AuthModule,
     AiModule,
+    MurdleModule,
   ],
 })
 export class AppModule {}
