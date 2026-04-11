@@ -66,6 +66,8 @@ export class MurdleGame {
     where: string;
     why: string;
   } | null;
+
+  @Prop({ default: null }) narrative: string;
 }
 
 export const MurdleGameSchema = SchemaFactory.createForClass(MurdleGame);

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { MurdleService } from './murdle.service';
 import { AuthGuard } from '../auth/auth.guard';
@@ -45,5 +54,10 @@ export class MurdleController {
     @Body() body: { grid: Record<string, string> },
   ) {
     return this.murdle.updateGrid(id, body.grid);
+  }
+
+  @Post(':id/narrative')
+  generateNarrative(@Param('id') id: string) {
+    return this.murdle.generateNarrative(id);
   }
 }

@@ -218,4 +218,99 @@ export class MurdleService {
     await game.save();
     return { ok: true };
   }
+
+  async generateNarrative(id: string): Promise<{ narrative: string }> {
+    const game = await this.murdleModel.findById(id);
+    if (!game) throw new NotFoundException('Game not found');
+
+    // Only available after game is over
+    if (!game.solved && !game.givenUp) {
+      throw new Error('Narrative is only available after the game ends');
+    }
+
+    // Return cached narrative if already generated
+    if (game.narrative) {
+      return { narrative: game.narrative };
+    }
+
+    const sol = game.solution;
+    const murdererAssignment = sol.assignments.find(
+      (a) => a.suspect === sol.murderer,
+    );
+
+    const assignmentLines = sol.assignments
+      .map(
+        (a) =>
+          `- ${a.suspect}: weapon="${a.weapon}", location="${a.location}", motive="${a.motive}"`,
+      )
+      .join('\n');
+
+    const prompt = `You are a noir detective narrator. Write a dramatic closing monologue (3-5 short paragraphs) that reveals the solution to this murder mystery.
+
+Game title: ${game.title}
+Intro: ${game.intro}
+
+Suspects: ${game.suspects.map((s) => `${s.name} (${s.description})`).join('; ')}
+
+The murderer is: ${sol.murderer}
+They used: ${murdererAssignment?.weapon}
+They were at: ${murdererAssignment?.location}
+Their motive: ${murdererAssignment?.motive}
+
+Full assignments:
+${assignmentLines}
+
+INSTRUCTIONS — follow these EXACTLY:
+- Write ONLY plain prose text. Do NOT return JSON. Do NOT wrap in any object, key, quotes, or code block.
+- Write in first person as the detective closing the case.
+- Name the murderer and explain how the clues pointed to them.
+- Mention the weapon and location dramatically.
+- Weave in the motive as the emotional climax.
+- Give each innocent suspect a very brief alibi mention.
+- Separate each paragraph with a blank line.
+- End with a short punchy final line (one sentence).
+- Maximum 250 words.
+- Your response must start directly with the first word of the monologue.`;
+
+    const raw = await this.ai.generateJson(prompt);
+
+    // Robustly extract plain text — the model sometimes returns JSON anyway
+    let text = raw.trim();
+
+    // Strip markdown code fences
+    text = text
+      .replace(/^```[a-z]*\n?/gi, '')
+      .replace(/```$/g, '')
+      .trim();
+
+    // If the result looks like JSON, try to unwrap it
+    if (text.startsWith('{') || text.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(text);
+        // Find the first string value anywhere in the object
+        const findStr = (obj: any): string | null => {
+          if (typeof obj === 'string') return obj;
+          if (typeof obj === 'object' && obj !== null) {
+            for (const v of Object.values(obj)) {
+              const found = findStr(v);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        const extracted = findStr(parsed);
+        if (extracted) text = extracted;
+      } catch {
+        // Not valid JSON — use as-is
+      }
+    }
+
+    // Normalise literal \n escape sequences into real newlines
+    text = text.replace(/\\n/g, '\n').trim();
+
+    game.narrative = text;
+    await game.save();
+
+    return { narrative: text };
+  }
 }
