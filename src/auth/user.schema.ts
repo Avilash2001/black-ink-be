@@ -16,6 +16,9 @@ export class User {
 
   @Prop({ default: false })
   matureEnabled: boolean;
+
+  @Prop({ type: Date, default: null })
+  dateOfBirth: Date | null;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

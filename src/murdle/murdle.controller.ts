@@ -21,7 +21,8 @@ export class MurdleController {
   @Post()
   async generatePuzzle(@Req() req: Request) {
     const userId = (req as any).user?.id;
-    return this.murdle.generatePuzzle(userId);
+    const matureEnabled = (req as any).user?.matureEnabled ?? false;
+    return this.murdle.generatePuzzle(userId, matureEnabled);
   }
 
   @UseGuards(AuthGuard)

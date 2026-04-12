@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -40,6 +41,9 @@ export class AuthService {
       id: user._id.toString(),
       name: user.name,
       email: user.email,
+      dateOfBirth: user.dateOfBirth
+        ? (user.dateOfBirth as Date).toISOString().split('T')[0]
+        : null,
     };
   }
 
@@ -75,6 +79,9 @@ export class AuthService {
         name: user.name,
         email: user.email,
         matureEnabled: user.matureEnabled ?? false,
+        dateOfBirth: user.dateOfBirth
+          ? (user.dateOfBirth as Date).toISOString().split('T')[0]
+          : null,
       },
     };
   }
@@ -98,6 +105,9 @@ export class AuthService {
         name: user.name,
         email: user.email,
         matureEnabled: user.matureEnabled ?? false,
+        dateOfBirth: user.dateOfBirth
+          ? (user.dateOfBirth as Date).toISOString().split('T')[0]
+          : null,
       },
     };
   }
@@ -121,13 +131,19 @@ export class AuthService {
       name: user.name,
       email: user.email,
       matureEnabled: user.matureEnabled ?? false,
+      dateOfBirth: user.dateOfBirth
+        ? (user.dateOfBirth as Date).toISOString().split('T')[0]
+        : null,
     };
   }
 
   // ─────────────────────────────────────
   // UPDATE PROFILE (name / email)
   // ─────────────────────────────────────
-  async updateProfile(userId: string, patch: { name?: string; email?: string }) {
+  async updateProfile(
+    userId: string,
+    patch: { name?: string; email?: string },
+  ) {
     if (patch.email) {
       const existing = await this.users.findOne({
         email: patch.email,
@@ -151,6 +167,36 @@ export class AuthService {
       name: user.name,
       email: user.email,
       matureEnabled: user.matureEnabled ?? false,
+      dateOfBirth: user.dateOfBirth
+        ? (user.dateOfBirth as Date).toISOString().split('T')[0]
+        : null,
+    };
+  }
+
+  // ─────────────────────────────────────
+  // SET DATE OF BIRTH (one-time, permanent)
+  // ─────────────────────────────────────
+  async setDateOfBirth(userId: string, dob: string) {
+    const user = await this.users.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+    if (user.dateOfBirth) {
+      throw new ForbiddenException(
+        'Date of birth has already been set and cannot be changed',
+      );
+    }
+
+    const date = new Date(dob);
+    if (isNaN(date.getTime())) throw new BadRequestException('Invalid date');
+
+    user.dateOfBirth = date;
+    await user.save();
+
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      matureEnabled: user.matureEnabled ?? false,
+      dateOfBirth: date.toISOString().split('T')[0],
     };
   }
 

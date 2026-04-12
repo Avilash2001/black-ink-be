@@ -77,6 +77,15 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard)
+  @Post('me/dob')
+  async setDateOfBirth(
+    @Req() req: any,
+    @Body('dateOfBirth') dateOfBirth: string,
+  ) {
+    return this.auth.setDateOfBirth(req.user.id, dateOfBirth);
+  }
+
+  @UseGuards(AuthGuard)
   @Patch('me/password')
   async changePassword(
     @Req() req: any,

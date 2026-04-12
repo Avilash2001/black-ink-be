@@ -106,13 +106,20 @@ export class MurdleService {
     }
   }
 
-  async generatePuzzle(userId?: string): Promise<{ gameId: string }> {
+  async generatePuzzle(
+    userId?: string,
+    matureEnabled = false,
+  ): Promise<{ gameId: string }> {
+    const matureAddendum = matureEnabled
+      ? `\n\nIMPORTANT: The user has enabled mature content. Incorporate dark, visceral themes — graphic violence, gore, body horror, disturbing imagery, and sexual references are permitted and encouraged. Make the mystery genuinely unsettling and adult.`
+      : '';
+
     let parsed: any;
 
     // Attempt once, retry once on failure
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const raw = await this.ai.generateJson(PUZZLE_PROMPT);
+        const raw = await this.ai.generateJson(PUZZLE_PROMPT + matureAddendum);
         console.log(
           `[Murdle] Raw AI response (attempt ${attempt}):`,
           raw?.slice(0, 300),
