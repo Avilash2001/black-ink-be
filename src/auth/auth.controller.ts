@@ -67,6 +67,28 @@ export class AuthController {
     return this.auth.updateUser(req.user.id, body);
   }
 
+  @UseGuards(AuthGuard)
+  @Patch('me/profile')
+  async updateProfile(
+    @Req() req: any,
+    @Body() body: { name?: string; email?: string },
+  ) {
+    return this.auth.updateProfile(req.user.id, body);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('me/password')
+  async changePassword(
+    @Req() req: any,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.auth.changePassword(
+      req.user.id,
+      body.currentPassword,
+      body.newPassword,
+    );
+  }
+
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const sessionId = req.cookies?.session;

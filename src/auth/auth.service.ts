@@ -125,6 +125,56 @@ export class AuthService {
   }
 
   // ─────────────────────────────────────
+  // UPDATE PROFILE (name / email)
+  // ─────────────────────────────────────
+  async updateProfile(userId: string, patch: { name?: string; email?: string }) {
+    if (patch.email) {
+      const existing = await this.users.findOne({
+        email: patch.email,
+        _id: { $ne: userId },
+      });
+      if (existing) {
+        throw new BadRequestException('Email already in use');
+      }
+    }
+
+    const user = await this.users.findByIdAndUpdate(
+      userId,
+      { $set: patch },
+      { new: true },
+    );
+
+    if (!user) throw new BadRequestException('User not found');
+
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      matureEnabled: user.matureEnabled ?? false,
+    };
+  }
+
+  // ─────────────────────────────────────
+  // CHANGE PASSWORD
+  // ─────────────────────────────────────
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.users.findById(userId);
+    if (!user) throw new BadRequestException('User not found');
+
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) throw new BadRequestException('Current password is incorrect');
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return { success: true };
+  }
+
+  // ─────────────────────────────────────
   // LOGOUT
   // ─────────────────────────────────────
   async logout(sessionId: string) {
