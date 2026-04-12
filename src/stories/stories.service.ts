@@ -46,12 +46,12 @@ export class StoriesService {
     }
 
     const paragraphs = aiText
-      .split('\n')
+      .split(/\n\n+/)
       .map((p) => p.trim())
       .filter(Boolean)
       .slice(0, 2);
 
-    const generatedText = paragraphs.join(' ');
+    const generatedText = paragraphs.join('\n\n');
     const tokenCount = generatedText.split(/\s+/).length;
 
     await this.storyNodeModel.create({
@@ -128,12 +128,12 @@ export class StoriesService {
     }
 
     const paragraphs = aiText
-      .split('\n')
+      .split(/\n\n+/)
       .map((p) => p.trim())
       .filter(Boolean)
       .slice(0, 2);
 
-    const generatedText = paragraphs.join(' ');
+    const generatedText = paragraphs.join('\n\n');
     const tokenCount = generatedText.split(/\s+/).length;
 
     // Calculate tokenStart based on the last node, or 0 if none
