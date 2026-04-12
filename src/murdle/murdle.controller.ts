@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Req,
@@ -54,6 +55,11 @@ export class MurdleController {
     @Body() body: { grid: Record<string, string> },
   ) {
     return this.murdle.updateGrid(id, body.grid);
+  }
+
+  @Post(':id/hint/:n')
+  revealHint(@Param('id') id: string, @Param('n', ParseIntPipe) n: number) {
+    return this.murdle.revealHint(id, n);
   }
 
   @Post(':id/narrative')

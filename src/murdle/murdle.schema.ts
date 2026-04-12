@@ -68,6 +68,14 @@ export class MurdleGame {
   } | null;
 
   @Prop({ default: null }) narrative: string;
+
+  // ── Hints ──
+  @Prop({ type: [String], default: [] }) hints: string[];
+  @Prop({ type: [Date], default: [] }) hintsRevealedAt: Date[];
+
+  // ── Timing ──
+  @Prop({ type: Date, default: null }) solvedAt: Date | null;
+  @Prop({ type: Date, default: null }) givenUpAt: Date | null;
 }
 
 export const MurdleGameSchema = SchemaFactory.createForClass(MurdleGame);

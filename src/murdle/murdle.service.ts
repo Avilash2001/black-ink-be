@@ -1,8 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MurdleGame, MurdleGameDocument } from './murdle.schema';
 import { AiService } from '../ai/ai.service';
+
+const FIVE_MIN_MS = 5 * 60 * 1000;
+const TEN_MIN_MS = 10 * 60 * 1000;
 
 const PUZZLE_PROMPT = `Create an original murder mystery logic puzzle and return it as JSON matching this exact schema:
 
@@ -136,31 +143,198 @@ export class MurdleService {
       givenUp: false,
       playerGrid: {},
       playerAccusation: null,
+      hints: [],
+      hintsRevealedAt: [],
+      solvedAt: null,
+      givenUpAt: null,
     });
 
+    // Generate hints in the background — does not block the response
+    this.generateHintsForGame(game).catch((err) =>
+      console.error('[Murdle] Hint generation failed:', err),
+    );
+
     return { gameId: String(game._id) };
+  }
+
+  // ── Generate and persist hints ────────────────────────────────────────────
+
+  private async generateHintsForGame(game: MurdleGameDocument): Promise<void> {
+    const sol = game.solution;
+    const assignmentLines = sol.assignments
+      .map(
+        (a) =>
+          `  ${a.suspect}: weapon="${a.weapon}", location="${a.location}", motive="${a.motive}"`,
+      )
+      .join('\n');
+
+    const prompt = `You are a murder mystery puzzle designer. Based on the following puzzle data, generate exactly 3 progressive hints to help players deduce the solution.
+
+CLUES:
+${game.clues.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+SUSPECT STATEMENTS (innocent suspects tell truth, murderer lies):
+${game.statements.map((s) => `${s.suspect}: "${s.text}"`).join('\n')}
+
+SOLUTION (context only — do NOT reveal directly in hints):
+Murderer: ${sol.murderer}
+${assignmentLines}
+
+Return a JSON object with exactly this shape:
+{
+  "hints": [
+    "hint_1_text",
+    "hint_2_text",
+    "hint_3_text"
+  ]
+}
+
+Rules:
+- Each hint must be a genuine logical deduction from the clues/statements above
+- Hint 1: Reference ONE clue or statement to eliminate a single possibility or confirm one fact. Vague and subtle.
+- Hint 2: Connect TWO pieces of evidence to make a more definitive deduction about the murderer's category (weapon, location, or motive).
+- Hint 3: Combine three or more clues/statements so the murderer's identity is nearly unmistakable — but do not directly say their name.
+- Write in detective reasoning style: "Notice that...", "Consider that...", "If you combine..."
+- Never say "The murderer is [name]" in any hint`;
+
+    const raw = await this.ai.generateJson(prompt);
+    const parsed = this.extractJson(raw);
+
+    if (!Array.isArray(parsed.hints) || parsed.hints.length !== 3) {
+      throw new Error('Hint generation returned invalid shape');
+    }
+
+    await this.murdleModel.findByIdAndUpdate(game._id, {
+      $set: { hints: parsed.hints },
+    });
+  }
+
+  // ── Reveal a hint ─────────────────────────────────────────────────────────
+
+  async revealHint(id: string, n: number): Promise<{ hint: string }> {
+    if (n < 0 || n > 2) throw new BadRequestException('Invalid hint index');
+
+    const game = await this.murdleModel.findById(id);
+    if (!game) throw new NotFoundException('Game not found');
+
+    if (game.solved || game.givenUp) {
+      throw new BadRequestException('Game is already over');
+    }
+
+    if (!game.hints || game.hints.length < 3) {
+      throw new BadRequestException(
+        'Hints are still being prepared. Please try again in a moment.',
+      );
+    }
+
+    // Already revealed — return it
+    if (game.hintsRevealedAt?.[n]) {
+      return { hint: game.hints[n] };
+    }
+
+    const now = Date.now();
+    const createdAt = (game as any).createdAt as Date;
+
+    // Check timing
+    if (n === 0) {
+      const availableAt = createdAt.getTime() + FIVE_MIN_MS;
+      if (now < availableAt) {
+        const secsLeft = Math.ceil((availableAt - now) / 1000);
+        throw new BadRequestException(
+          `Hint 1 unlocks in ${Math.ceil(secsLeft / 60)}m ${secsLeft % 60}s`,
+        );
+      }
+    } else if (n === 1) {
+      if (!game.hintsRevealedAt?.[0]) {
+        throw new BadRequestException('Reveal Hint 1 first');
+      }
+      const availableAt = game.hintsRevealedAt[0].getTime() + FIVE_MIN_MS;
+      if (now < availableAt) {
+        const secsLeft = Math.ceil((availableAt - now) / 1000);
+        throw new BadRequestException(
+          `Hint 2 unlocks in ${Math.ceil(secsLeft / 60)}m ${secsLeft % 60}s`,
+        );
+      }
+    } else {
+      // n === 2
+      if (!game.hintsRevealedAt?.[1]) {
+        throw new BadRequestException('Reveal Hint 2 first');
+      }
+      const availableAt = game.hintsRevealedAt[1].getTime() + TEN_MIN_MS;
+      if (now < availableAt) {
+        const secsLeft = Math.ceil((availableAt - now) / 1000);
+        throw new BadRequestException(
+          `Hint 3 unlocks in ${Math.ceil(secsLeft / 60)}m ${secsLeft % 60}s`,
+        );
+      }
+    }
+
+    // Record reveal timestamp
+    const revealedAt = [...(game.hintsRevealedAt ?? [])];
+    revealedAt[n] = new Date();
+    game.hintsRevealedAt = revealedAt;
+    await game.save();
+
+    return { hint: game.hints[n] };
+  }
+
+  // ── Compute hint availability timestamps ──────────────────────────────────
+
+  private hintAvailability(game: MurdleGameDocument): (string | null)[] {
+    const createdAt = (game as any).createdAt as Date;
+    const r = game.hintsRevealedAt ?? [];
+
+    return [
+      new Date(createdAt.getTime() + FIVE_MIN_MS).toISOString(),
+      r[0] ? new Date(r[0].getTime() + FIVE_MIN_MS).toISOString() : null,
+      r[1] ? new Date(r[1].getTime() + TEN_MIN_MS).toISOString() : null,
+    ];
   }
 
   async getMyMysteries(userId: string) {
     return this.murdleModel
       .find({ userId })
       .sort({ createdAt: -1 })
-      .select('_id title intro solved givenUp createdAt')
+      .select('_id title intro solved givenUp createdAt solvedAt givenUpAt')
       .lean();
   }
 
   async getGame(id: string) {
-    const game = await this.murdleModel.findById(id).lean();
+    const game = await this.murdleModel.findById(id);
     if (!game) throw new NotFoundException('Game not found');
 
-    // Hide solution unless game is over
+    const revealedHints = (game.hints ?? []).filter(
+      (_, i) => !!(game.hintsRevealedAt ?? [])[i],
+    );
+
+    const base = {
+      _id: game._id,
+      title: game.title,
+      intro: game.intro,
+      suspects: game.suspects,
+      weapons: game.weapons,
+      locations: game.locations,
+      motives: game.motives,
+      clues: game.clues,
+      statements: game.statements,
+      solved: game.solved,
+      givenUp: game.givenUp,
+      playerGrid: game.playerGrid,
+      playerAccusation: game.playerAccusation,
+      createdAt: (game as any).createdAt,
+      solvedAt: game.solvedAt,
+      givenUpAt: game.givenUpAt,
+      hintsReady: (game.hints ?? []).length === 3,
+      hintsRevealedAt: game.hintsRevealedAt ?? [],
+      hintsAvailableAt: this.hintAvailability(game),
+      revealedHints,
+    };
+
     if (!game.solved && !game.givenUp) {
-      const { solution: _solution, ...rest } = game as any;
-      void _solution;
-      return rest;
+      return base;
     }
 
-    return game;
+    return { ...base, solution: game.solution };
   }
 
   async accuse(
@@ -189,6 +363,7 @@ export class MurdleService {
 
     if (correct) {
       game.solved = true;
+      game.solvedAt = new Date();
       await game.save();
       return { correct: true, solution };
     }
@@ -202,6 +377,7 @@ export class MurdleService {
     if (!game) throw new NotFoundException('Game not found');
 
     game.givenUp = true;
+    game.givenUpAt = new Date();
     await game.save();
 
     return { solution: game.solution };
