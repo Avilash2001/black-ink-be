@@ -79,6 +79,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         matureEnabled: user.matureEnabled ?? false,
+        theme: user.theme ?? 'dark',
         dateOfBirth: user.dateOfBirth
           ? (user.dateOfBirth as Date).toISOString().split('T')[0]
           : null,
@@ -105,6 +106,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         matureEnabled: user.matureEnabled ?? false,
+        theme: user.theme ?? 'dark',
         dateOfBirth: user.dateOfBirth
           ? (user.dateOfBirth as Date).toISOString().split('T')[0]
           : null,
@@ -115,7 +117,10 @@ export class AuthService {
   // ─────────────────────────────────────
   // UPDATE USER SETTINGS
   // ─────────────────────────────────────
-  async updateUser(userId: string, patch: { matureEnabled?: boolean }) {
+  async updateUser(
+    userId: string,
+    patch: { matureEnabled?: boolean; theme?: 'dark' | 'light' },
+  ) {
     const user = await this.users.findByIdAndUpdate(
       userId,
       { $set: patch },
@@ -131,6 +136,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       matureEnabled: user.matureEnabled ?? false,
+      theme: user.theme ?? 'dark',
       dateOfBirth: user.dateOfBirth
         ? (user.dateOfBirth as Date).toISOString().split('T')[0]
         : null,
@@ -167,6 +173,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       matureEnabled: user.matureEnabled ?? false,
+      theme: user.theme ?? 'dark',
       dateOfBirth: user.dateOfBirth
         ? (user.dateOfBirth as Date).toISOString().split('T')[0]
         : null,
@@ -196,6 +203,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       matureEnabled: user.matureEnabled ?? false,
+      theme: user.theme ?? 'dark',
       dateOfBirth: date.toISOString().split('T')[0],
     };
   }

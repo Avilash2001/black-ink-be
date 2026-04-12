@@ -17,6 +17,9 @@ export class User {
   @Prop({ default: false })
   matureEnabled: boolean;
 
+  @Prop({ type: String, enum: ['dark', 'light'], default: 'dark' })
+  theme: 'dark' | 'light';
+
   @Prop({ type: Date, default: null })
   dateOfBirth: Date | null;
 }
