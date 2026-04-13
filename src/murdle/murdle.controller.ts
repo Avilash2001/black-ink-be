@@ -13,7 +13,7 @@ import { Request } from 'express';
 import { MurdleService } from './murdle.service';
 import { AuthGuard } from '../auth/auth.guard';
 
-@Controller('murdle')
+@Controller('whodunit')
 export class MurdleController {
   constructor(private readonly murdle: MurdleService) {}
 
